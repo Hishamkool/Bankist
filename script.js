@@ -40,7 +40,7 @@ const account5 = {
 };
 
 const accounts = [account1, account2, account3, account4, account5];
-
+const keyCurrentUser = 'currentUSER';
 // Elements
 const labelWelcome = document.querySelector('.welcome');
 const labelDate = document.querySelector('.date');
@@ -105,8 +105,10 @@ createUserNames(accounts);
 console.log(accounts);
 
 // find balance
-const currentBalance = function (movements) {
-  return movements.reduce((acc, cur) => (acc += cur));
+const currentBalance = function (acc) {
+  const balance = acc.movements.reduce((acc, cur) => (acc += cur));
+  labelBalance.textContent = `${balance}€`;
+  acc.currentBalance = Number(balance);
 };
 
 //find the total sum of transactions
@@ -140,8 +142,7 @@ const calcDisplaySymmary = function (accounts) {
   labelSumInterest.textContent = `${totalInterest}€`;
 
   //current balance
-  const cntBal = currentBalance(accounts.movements);
-  labelBalance.textContent = `${cntBal}€`;
+  currentBalance(accounts);
 };
 
 console.log(`\n------------find method------------`);
@@ -153,30 +154,72 @@ console.log('jessicas account details:', jessicaAccount);
 
 console.log(`\n------------logggin in ------------`);
 
-let currentUser;
-console.log({ currentUser });
+const storedUser = localStorage.getItem(keyCurrentUser);
+console.log(storedUser);
 
+let currentAccount = storedUser ? JSON.parse(storedUser) : null;
+console.log('current user :', currentAccount);
+
+const updateUI = function (acc) {
+  // display transactions or movements
+  displayTransactions(acc.movements);
+  //calculate transactions
+  calcDisplaySymmary(acc);
+};
+const login = function (currentUser) {
+  console.log('login success');
+  labelWelcome.textContent = `Welcome back, ${currentUser.owner.split(' ')[0]}`;
+  containerApp.style.opacity = 100;
+  // clearing the input fields
+  inputLoginUsername.value = inputLoginPin.value = '';
+  //to remove the focus
+  inputLoginPin.blur();
+  updateUI(currentUser);
+};
+// display data for already logged in user
+if (currentAccount !== null) {
+  login(currentAccount);
+}
 btnLogin.addEventListener('click', function (e) {
   e.preventDefault();
-  currentUser = accounts.find(acc => acc.userName === inputLoginUsername.value);
-  console.log('current user details:', currentUser);
-  if (currentUser?.pin === Number(inputLoginPin.value)) {
-    // display ui and welcome message
-    console.log('login success');
-    labelWelcome.textContent = `Welcome back, ${
-      currentUser.owner.split(' ')[0]
-    }`;
-    containerApp.style.opacity = 100;
-    // clearing the input fields
-    inputLoginUsername.value = inputLoginPin.value = '';
-    //to remove the focus
-    inputLoginPin.blur();
-    // display transactions or movements
-    displayTransactions(currentUser.movements);
-    //calculate transactions
-    calcDisplaySymmary(currentUser);
+  currentAccount = accounts.find(
+    acc => acc.userName === inputLoginUsername.value
+  );
+  console.log('current user details:', currentAccount);
+  if (currentAccount?.pin === Number(inputLoginPin.value)) {
+    localStorage.setItem(keyCurrentUser, JSON.stringify(currentAccount));
+    //login user
+    login(currentAccount);
   } else {
     labelWelcome.textContent = `Incorrect credentials`;
     console.log('Password incorrect ');
   }
+});
+
+console.log(`\n------------TRANSFER AMOUNG------------`);
+
+btnTransfer.addEventListener('click', function (e) {
+  e.preventDefault();
+  const amount = Number(inputTransferAmount.value);
+  const receiver = accounts.find(acc => acc.userName === inputTransferTo.value);
+  //receiver account details obtained
+  //checking conditions
+  const hasReceiver = !!receiver; // it helps us convert this value to a boolean value
+  const validAmount = amount > 0;
+  const sufficientBalance = amount <= currentAccount.currentBalance;
+  const notSameUser = currentAccount.userName !== receiver?.userName;
+
+  if (hasReceiver && validAmount && sufficientBalance && notSameUser) {
+    console.log('Transfer valid!');
+    currentAccount.movements.push(-amount);
+    receiver.movements.push(amount);
+    updateUI(currentAccount);
+  } else {
+    if (!hasReceiver) console.error('Transfer failed: Receiver not found');
+    if (!validAmount) console.error('Transfer failed: Amount must be > 0');
+    if (!sufficientBalance)
+      console.error('Transfer failed: Insufficient balance');
+    if (!notSameUser) console.error('Transfer failed: Cannot transfer to self');
+  }
+  inputTransferAmount.value = inputTransferTo.value = '';
 });
